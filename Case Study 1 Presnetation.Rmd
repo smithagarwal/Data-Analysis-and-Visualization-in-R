@@ -1,0 +1,126 @@
+---
+title: "Case Study 1"
+author: "Smith Agarwal, Nitin Vashisth, Vindhya Singh, Akshaya Ramakrishnan"
+date: "December 20, 2017"
+output:
+  beamer_presentation: default
+  slidy_presentation: default
+---
+
+# Contents
+
+- Data Loading
+- Data Description
+- Data Analysis - I
+- Data Analysis - II
+- Data Analysis - III
+
+# Data Loading
+
+```{r , message= FALSE}
+#Loading the required libraries
+library(data.table)
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+```
+
+```{r}
+#Reading the input files and storing it in data table
+file_path = "~/Desktop/TUM Course/Data Analysis and Visualization in R/Case Study/Data_sets"
+gene <- fread(file.path(file_path,"gene.txt"))
+genotype <- fread(file.path(file_path,"genotype.txt"))
+growth <- fread(file.path(file_path,"growth.txt"))
+marker <- fread(file.path(file_path,"marker.txt"))
+expression <- fread(file.path(file_path,"expression.txt"))
+```
+
+# Data Description
+
+```{r}
+glimpse(gene)
+dim(genotype)
+glimpse(genotype[,1:5])
+glimpse(growth)
+glimpse(marker)
+dim(expression)
+glimpse(expression[,1:5])
+```
+
+# Data Analysis - I
+
+####Analysing the fitness of segregants by plotting the growth rate of all segregants for different environments
+
+```{r, tidy=TRUE, tidy.opts=list(width.cutoff=60), message=FALSE}
+growth_gather <- gather(growth,key="env",value="growth_rate",-1)
+
+ggplot(growth_gather,aes(x=env,y=growth_rate)) + geom_boxplot() + 
+geom_jitter(width = 0.4,alpha=0.2)+labs(x="Environment",y="Growth Rate")
+
+ggplot(growth_gather,aes(growth_rate)) + geom_density(aes(fill=env,alpha=0.25))+ labs(x="Growth Rate",y="Density")
+```
+
+Conclusion
+
+- The fitness of the segregants vary greatly based on the environments
+- Segregants display a maximum growth rate in YPD environment
+- Within each environment, the fitness varies depending on the genotype of the segregants
+- In YPD_BPS the genotype effect is smallest and in YPMalt the genotype affects fitness greatly
+
+# Data Analysis - II
+
+####Analysing the segregant fitness across all the markers by plotting the growth rate of all segregants for different environments and dominant strain
+
+```{r, tidy=TRUE, tidy.opts=list(width.cutoff=60), message=FALSE}
+# Calculating the count of strains for each marker grouped by strain values
+genotype_mrk <- gather(genotype,"marker","value",-1)
+genotype_mrk <- as.data.table(genotype_mrk)
+genotype_strain_count <- genotype_mrk[,.(count=.N),by=.(value,strain)]
+genotype_strain_count <- genotype_strain_count[,c(2,3,1)]
+genotype_strain_count <- spread(genotype_strain_count,key=value,value=count)
+
+#Differentiate a segment based on dominant strain
+genotype_strain_count$genotype <- ifelse(genotype_strain_count$`Lab strain`>genotype_strain_count$`Wild isolate`,"Lab strain","Wild isolate")
+growth_merged <- merge(growth_gather,genotype_strain_count)
+
+ggplot(growth_merged,aes(x=env,y=growth_rate,color=genotype)) +labs(x="Environment",y="Growth Rate")+ geom_boxplot()
+```
+
+Conclusion
+
+- We call a segregant 'Wild' when it has more wild markers then 'Lab' and vice versa
+- In general, we observed that each segregant has almost 50% of the markers denoting 'Lab' and 'Wild' with only slight variations
+- Except for YPE environment, the segregants with more 'Wild' markers have slightly better growth rate globally.
+- IN YPD_BPS the genotype effect is smallest and in YPMalt the genotype affects fitness greatly
+
+# Data Analysis - III
+
+####Testing growth in Maltose and genotype given in the case study slides
+
+```{r, tidy=TRUE, tidy.opts=list(width.cutoff=60), message=FALSE}
+marker <- read.delim(file.path(file_path,"marker.txt"))
+growth <- read.delim(file.path(file_path,"growth.txt"))
+genotype <- read.delim(file.path(file_path,"genotype.txt"))
+mygeno <- genotype[, which(marker$chrom=="chr07" & marker$start== 1069229)]
+names(mygeno) <- genotype$strain
+plot(YPMalt ~ mygeno[strain], data=growth)
+
+#Finding the index of the desired marker
+which(marker$chrom=="chr07" & marker$start== 1069229)
+#Find the marker id for the obtained index
+marker[which(marker$chrom=="chr07" & marker$start== 1069229),]
+#Column name of the marker id used
+colnames(genotype)[which(marker$chrom=="chr07" & marker$start== 1069229)]
+#Desired column name of the marker id
+colnames(genotype)[which(marker$chrom=="chr07" & marker$start== 1069229)+1]
+
+#Desired Boxplot graph
+mygeno <- genotype[, which(marker$chrom=="chr07" & marker$start== 1069229)+1]
+names(mygeno) <- genotype$strain
+plot(YPMalt ~ mygeno[strain], data=growth)
+```
+
+Conclusion
+
+- The discrepancy was due to missing the index value by 1 as there is an additional column of strain in the genotype dataset making the number of variables as 1001
+- Even though it was a different marker but the variation in both the graphs is minimal
